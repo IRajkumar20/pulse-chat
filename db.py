@@ -18,6 +18,7 @@ import logging
 import os
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from urllib.parse import quote, unquote
 
 from sqlalchemy import create_engine, text
 
@@ -61,7 +62,23 @@ def database_url() -> str:
         url = "postgresql://" + url[len("postgres://"):]
     if url.startswith("postgresql://"):
         url = "postgresql+psycopg://" + url[len("postgresql://"):]
-    return url
+    return _encode_password(url)
+
+
+def _encode_password(url: str) -> str:
+    """Percent-encode the password so characters like @ # / ? : & in it don't break the URL.
+
+    The host always comes after the LAST '@', so everything between 'user:' and that '@'
+    is the password. Already-encoded passwords (e.g. %40) are left as they are.
+    """
+    scheme, sep, rest = url.partition("://")
+    if not sep or "@" not in rest:
+        return url
+    creds, _, host = rest.rpartition("@")
+    user, colon, password = creds.partition(":")
+    if not colon:
+        return url
+    return f"{scheme}://{user}:{quote(unquote(password), safe='')}@{host}"
 
 
 # fixed table/column names only (never user input) for the pair helpers
