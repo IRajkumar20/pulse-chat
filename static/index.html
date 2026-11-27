@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pulse</title>
+<link rel="icon" type="image/svg+xml" href="/static/logo.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #eef0f5; --panel: #ffffff; --soft: #f6f7fb; --hover: #f3f4f8;
+    --line: #e7e9f0; --text: #111827; --muted: #6b7280; --faint: #9ca3af;
+    --accent: #111111; --accent-2: #2e2e2e; --accent-soft: #ececec; --accent-text: #111111;
+    --online: #22c55e; --danger: #ef4444;
+    --mine: #111111; --mine-text: #ffffff; --theirs: #ffffff;
+    --chat-bg: #f7f8fb;
+    --shadow: 0 1px 2px rgba(16,24,40,.04), 0 12px 40px rgba(16,24,40,.08);
+    --radius: 18px;
+  }
+  body[data-theme="dark"] {
+    --bg: #0b0d12; --panel: #141720; --soft: #1a1e29; --hover: #1c202b;
+    --line: #242936; --text: #e8eaf0; --muted: #9aa1b2; --faint: #6b7385;
+    --accent: #6366f1; --accent-2: #818cf8; --accent-soft: rgba(99,102,241,.14); --accent-text: #a5b4fc;
+    --mine: #5b5ff0; --theirs: #1f2431; --chat-bg: #10131a;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 16px 50px rgba(0,0,0,.45);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; height: 100vh; overflow: hidden; font-family: "Inter", "Segoe UI", system-ui, sans-serif; color: var(--text); background: var(--bg);
+    -webkit-font-smoothing: antialiased; transition: background .25s, color .25s; }
+  button { font: inherit; cursor: pointer; border: 0; color: inherit; background: none; }
+  input { font: inherit; color: var(--text); }
+  ::placeholder { color: var(--faint); }
+  ::-webkit-scrollbar { width: 8px; } ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; border: 2px solid transparent; background-clip: padding-box; }
+  .grad-text { color: var(--accent); }
+
+  /* ---------- login ---------- */
+  #login { position: fixed; inset: 0; z-index: 2; display: flex; align-items: center; justify-content: center; padding: 20px;
+    background: radial-gradient(1200px 500px at 50% -10%, var(--accent-soft), transparent 70%), var(--bg); }
+  .card { width: 400px; padding: 40px 36px 34px; border-radius: 22px; background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow); text-align: center; animation: rise .45s ease-out; }
+  @keyframes rise { from { transform: translateY(14px); opacity: 0; } }
+  .logo { width: 56px; height: 56px; margin: 0 auto 18px; border-radius: 28%; background: linear-gradient(135deg, #2b2b2b, #000000); display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 20px rgba(0,0,0,.25); overflow: hidden; }
+  .logo svg { width: 100%; height: 100%; }
+  .card h1 { margin: 0 0 6px; font-size: 26px; font-weight: 700; letter-spacing: -.02em; }
+  .card p { margin: 0 0 26px; color: var(--muted); font-size: 14.5px; }
+  .field { margin-bottom: 14px; text-align: left; }
+  .field input { width: 100%; padding: 13px 15px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); outline: none; font-size: 15px; transition: border .15s, box-shadow .15s; }
+  .field input:focus { border-color: var(--accent-2); box-shadow: 0 0 0 4px var(--accent-soft); }
+  .primary { background: var(--accent); color: #fff; border-radius: 12px; font-weight: 600; padding: 13px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; transition: background .15s, transform .1s; }
+  .primary:hover { background: var(--accent-2); }
+  .primary:active { transform: scale(.99); }
+  .card .foot { margin-top: 18px; font-size: 12.5px; color: var(--faint); }
+
+  /* ---------- app shell: rail | list | chat ---------- */
+  #app { display: none; position: relative; height: calc(100vh - 40px); margin: 20px auto; max-width: 1440px; width: calc(100% - 40px);
+    background: var(--panel); border: 1px solid var(--line); border-radius: 22px; box-shadow: var(--shadow); overflow: hidden; }
+  .panel { display: flex; flex-direction: column; min-height: 0; background: var(--panel); }
+
+  /* rail */
+  #rail { width: 72px; flex-shrink: 0; align-items: center; padding: 18px 0 16px; gap: 6px; border-right: 1px solid var(--line); background: var(--soft); }
+  #rail .logo { width: 42px; height: 42px; margin: 0 0 18px; box-shadow: 0 4px 12px rgba(0,0,0,.2); }
+  #rail .logo svg { width: 100%; height: 100%; }
+  .tabs { display: flex; flex-direction: column; gap: 6px; flex: 1; }
+  .tab, .railbtn { width: 44px; height: 44px; border-radius: 12px; color: var(--muted); display: flex; align-items: center; justify-content: center; position: relative; transition: background .15s, color .15s; }
+  .tab svg, .railbtn svg { width: 21px; height: 21px; }
+  .tab:hover, .railbtn:hover { background: var(--hover); color: var(--text); }
+  .tab.on { background: var(--accent-soft); color: var(--accent-text); }
+  .tab::after { content: attr(data-label); position: absolute; left: 54px; padding: 6px 10px; border-radius: 8px; background: #111827; color: #fff; font-size: 12px; font-weight: 500;
+    white-space: nowrap; opacity: 0; pointer-events: none; transform: translateX(-4px); transition: .15s; z-index: 5; }
+  .tab:hover::after { opacity: 1; transform: none; }
+  .pill { position: absolute; top: 5px; right: 5px; background: var(--danger); color: #fff; font-size: 10px; font-weight: 700; min-width: 17px; height: 17px; border-radius: 9px; padding: 0 4px;
+    display: inline-flex; align-items: center; justify-content: center; border: 2px solid var(--soft); }
+  .swatch { display: none; }
+  #rail .avatar { margin-top: 8px; width: 38px; height: 38px; font-size: 14px; }
+
+  /* side list */
+  #side { width: 340px; flex-shrink: 0; border-right: 1px solid var(--line); }
+  .sidehead { padding: 22px 20px 4px; }
+  .sidehead small { color: var(--muted); font-size: 13px; }
+  .sidehead h2 { margin: 2px 0 0; font-size: 22px; font-weight: 700; letter-spacing: -.02em; }
+  .searchbox { position: relative; margin: 14px 16px 8px; }
+  .searchbox svg { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--faint); }
+  #search { width: 100%; padding: 10px 14px 10px 38px; border-radius: 11px; border: 1px solid transparent; background: var(--soft); outline: none; font-size: 14px; transition: border .15s, background .15s; }
+  #search:focus { border-color: var(--accent-2); background: var(--panel); box-shadow: 0 0 0 4px var(--accent-soft); }
+  #list { flex: 1; overflow-y: auto; padding: 4px 10px 14px; }
+  .empty { padding: 48px 24px; text-align: center; color: var(--muted); font-size: 14px; line-height: 1.6; }
+  .empty .ico { width: 52px; height: 52px; border-radius: 16px; background: var(--accent-soft); display: flex; align-items: center; justify-content: center; font-size: 24px; margin: 0 auto 14px; }
+  .section { padding: 16px 12px 6px; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); }
+
+  .avatar { width: 46px; height: 46px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; color: #fff; flex-shrink: 0; position: relative; font-size: 16px; }
+  .dot { position: absolute; right: 0; bottom: 0; width: 12px; height: 12px; background: var(--online); border: 2.5px solid var(--panel); border-radius: 50%; }
+
+  .row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 14px; cursor: pointer; transition: background .12s; }
+  .row:hover { background: var(--hover); }
+  .row.active { background: var(--accent-soft); }
+  .row .info { flex: 1; min-width: 0; }
+  .row .top { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+  .row .nm { font-weight: 600; font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .tm { font-size: 11.5px; color: var(--faint); }
+  .row .last { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+  .row.unread .nm, .row.unread .last { color: var(--text); font-weight: 600; }
+  .row.unread .tm { color: var(--accent); font-weight: 600; }
+  .badge { background: var(--accent); color: #fff; font-size: 11px; font-weight: 700; min-width: 20px; height: 20px; border-radius: 10px; padding: 0 6px; display: flex; align-items: center; justify-content: center; }
+
+  .btn { padding: 7px 13px; border-radius: 10px; font-size: 13px; font-weight: 600; background: var(--soft); border: 1px solid var(--line); white-space: nowrap; transition: background .12s, border .12s; }
+  .btn:hover { background: var(--hover); }
+  .btn.add { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.add:hover { background: var(--accent-2); }
+  .btn.ok { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.no { color: var(--muted); }
+  .btn.wait { color: var(--muted); background: none; }
+  .acts { display: flex; gap: 6px; }
+
+  /* main / chat */
+  #main { flex: 1; min-width: 0; background: var(--chat-bg); }
+  #placeholder { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--muted); text-align: center; padding: 20px; font-size: 14.5px; }
+  #placeholder h2 { color: var(--text); margin: 26px 0 6px; font-size: 22px; font-weight: 700; letter-spacing: -.01em; }
+  .orbit { position: relative; width: 150px; height: 150px; display: flex; align-items: center; justify-content: center; }
+  .orbit .logo { width: 72px; height: 72px; margin: 0; }
+  .orbit .logo svg { width: 100%; height: 100%; }
+  .orbit .ring { position: absolute; inset: 0; border-radius: 50%; background: var(--accent-soft); opacity: .55; }
+  .orbit .ring.r2 { inset: 22px; opacity: .9; }
+
+  #chat { display: none; flex: 1; flex-direction: column; min-height: 0; }
+  .head { display: flex; align-items: center; gap: 12px; padding: 12px 20px; min-height: 68px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  .head .avatar { width: 42px; height: 42px; }
+  .head .title { font-weight: 600; font-size: 15.5px; }
+  .head .sub { font-size: 12.5px; color: var(--muted); display: flex; align-items: center; gap: 6px; margin-top: 1px; }
+  .head .sub.on { color: var(--online); }
+  .head .sub.on::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--online); }
+  #back { display: none; font-size: 20px; padding: 4px 8px; color: var(--muted); }
+  .callbtn { margin-left: auto; width: 42px; height: 42px; border-radius: 12px; border: 1px solid var(--line); color: var(--accent); display: flex; align-items: center; justify-content: center; transition: background .12s; }
+  .callbtn:hover { background: var(--accent-soft); }
+  .callbtn svg { fill: currentColor; }
+
+  #messages { flex: 1; overflow-y: auto; padding: 20px 8% 20px; display: flex; flex-direction: column; gap: 2px; }
+  .day { align-self: center; font-size: 11.5px; font-weight: 600; color: var(--muted); background: var(--panel); border: 1px solid var(--line); padding: 4px 12px; border-radius: 20px; margin: 14px 0 8px; }
+  .msg { max-width: 60%; padding: 9px 13px 7px; border-radius: 16px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; margin-top: 8px; font-size: 14.5px; animation: pop .18s ease-out; }
+  .msg.cont { margin-top: 2px; }
+  .msg.mine { align-self: flex-end; background: var(--mine); color: var(--mine-text); border-bottom-right-radius: 5px; }
+  .msg.mine.cont { border-top-right-radius: 6px; }
+  .msg.theirs { align-self: flex-start; background: var(--theirs); border: 1px solid var(--line); border-bottom-left-radius: 5px; box-shadow: 0 1px 2px rgba(16,24,40,.04); }
+  .msg.theirs.cont { border-top-left-radius: 6px; }
+  .msg .t { display: flex; justify-content: flex-end; align-items: center; gap: 4px; font-size: 10.5px; margin-top: 2px; }
+  .msg.mine .t { color: rgba(255,255,255,.72); }
+  .msg.theirs .t { color: var(--faint); }
+  .tick { display: inline-flex; align-items: center; transition: color .2s; }
+  .tick svg { width: 17px; height: 11px; }
+  .msg.mine .tick.seen { color: #7dd3fc; opacity: 1; }
+  .row .last .tick { color: var(--faint); margin-right: 4px; vertical-align: -1px; }
+  .row .last .tick.seen { color: #0ea5e9; }
+  @keyframes pop { from { transform: translateY(4px); opacity: 0; } }
+
+  #form { display: flex; gap: 10px; align-items: center; padding: 14px 20px; border-top: 1px solid var(--line); background: var(--panel); }
+  #input { flex: 1; padding: 12px 16px; border-radius: 12px; border: 1px solid var(--line); background: var(--soft); outline: none; font-size: 14.5px; transition: border .15s, background .15s, box-shadow .15s; }
+  #input:focus { border-color: var(--accent-2); background: var(--panel); box-shadow: 0 0 0 4px var(--accent-soft); }
+  #send { width: 44px; height: 44px; border-radius: 12px; background: var(--accent); display: flex; align-items: center; justify-content: center; transition: background .12s, transform .1s; }
+  #send:hover { background: var(--accent-2); }
+  #send:active { transform: scale(.95); }
+  #locked { display: none; }
+  #status { display: none; background: #fef3c7; color: #92400e; text-align: center; font-size: 13px; font-weight: 500; padding: 6px; }
+
+  /* ---------- calls ---------- */
+  .overlay { display: none; position: fixed; inset: 0; z-index: 10; background: rgba(9,11,17,.92); align-items: center; justify-content: center; flex-direction: column; gap: 18px; }
+  .overlay.show { display: flex; }
+  @keyframes ring { 0% { box-shadow: 0 0 0 0 rgba(255,255,255,.35); } 100% { box-shadow: 0 0 0 26px rgba(255,255,255,0); } }
+  @keyframes popIn { from { transform: translateY(16px) scale(.97); opacity: 0; } }
+  @keyframes dots { 0% { content: ""; } 33% { content: "."; } 66% { content: ".."; } 100% { content: "..."; } }
+
+  #incoming { background: rgba(9,11,17,.45); backdrop-filter: blur(4px); }
+  .callcard { width: 320px; padding: 30px 24px 26px; border-radius: 22px; text-align: center; background: var(--panel); border: 1px solid var(--line); box-shadow: 0 24px 70px rgba(0,0,0,.3); animation: popIn .28s ease-out; }
+  .callcard .tag { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--accent-text); background: var(--accent-soft); padding: 5px 12px; border-radius: 20px; }
+  .bigav { width: 92px; height: 92px; font-size: 36px; margin: 24px auto 16px; animation: ring 1.8s infinite; }
+  .callcard h2 { margin: 0 0 4px; font-size: 21px; font-weight: 700; }
+  .callcard p { margin: 0 0 26px; color: var(--muted); font-size: 14px; }
+  .callcard p::after, #ringText::after { content: ""; animation: dots 1.2s steps(1) infinite; }
+  .callcard .row2 { justify-content: center; gap: 48px; }
+  .callcard .lbl { display: block; font-size: 12px; color: var(--muted); margin-top: 8px; }
+  .ctl { width: 54px; height: 54px; border-radius: 50%; background: rgba(255,255,255,.14); color: #fff; font-size: 20px; transition: background .15s, transform .1s; }
+  .ctl:hover { background: rgba(255,255,255,.22); }
+  .ctl:active { transform: scale(.95); }
+  .ctl.off { background: #fff; color: #111; }
+  .ctl.end, .ctl.decline { background: var(--danger); }
+  .ctl.end:hover, .ctl.decline:hover { background: #dc2626; }
+  .ctl.accept { background: var(--online); }
+  .ctl.accept:hover { background: #16a34a; }
+  .ctl.big { width: 60px; height: 60px; font-size: 22px; }
+  .row2 { display: flex; gap: 24px; }
+
+  #callView { background: #090b11; gap: 0; }
+  #remoteVideo { width: 100%; height: 100%; object-fit: cover; background: #090b11; }
+  #ringing { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 4px; color: #fff;
+    background: radial-gradient(800px 500px at 50% 35%, #2a2a2a, #000000 70%); }
+  #ringing.show { display: flex; }
+  #ringing h2 { margin: 0; font-size: 26px; font-weight: 700; }
+  #ringText { color: #9aa1b2; }
+  #localVideo { position: absolute; right: 20px; top: 20px; width: 200px; aspect-ratio: 4/3; object-fit: cover; border-radius: 14px; border: 1px solid rgba(255,255,255,.15); background: #111; transform: scaleX(-1); box-shadow: 0 10px 30px rgba(0,0,0,.5); }
+  #callInfo { position: absolute; left: 24px; top: 22px; font-weight: 600; font-size: 16px; color: #fff; text-shadow: 0 1px 6px rgba(0,0,0,.6); }
+  #callInfo small { display: block; font-weight: 500; font-size: 13px; color: #d1d5db; font-variant-numeric: tabular-nums; }
+  #controls { position: absolute; bottom: 28px; display: flex; gap: 14px; padding: 10px 14px; border-radius: 40px; background: rgba(20,23,32,.7); border: 1px solid rgba(255,255,255,.08); backdrop-filter: blur(12px); }
+
+  #toasts { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 30; display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
+  .toast { padding: 10px 16px; border-radius: 12px; background: #111827; color: #fff; box-shadow: 0 10px 30px rgba(0,0,0,.25); font-size: 13.5px; font-weight: 500; animation: popIn .2s ease-out; }
+  .toast.bad { background: #7f1d1d; }
+
+  /* ---------- profile ---------- */
+  .clickable { cursor: pointer; }
+  .modal { display: none; position: fixed; inset: 0; z-index: 9; background: rgba(9,11,17,.45); backdrop-filter: blur(4px); align-items: center; justify-content: center; padding: 20px; }
+  .modal.show { display: flex; }
+  .pcard { width: 420px; max-width: 100%; max-height: calc(100vh - 40px); overflow-y: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 22px;
+    box-shadow: 0 24px 70px rgba(0,0,0,.28); animation: popIn .22s ease-out; position: relative; }
+  .pcover { height: 112px; background: linear-gradient(135deg, #000000, #3a3a3a); position: relative; }
+  .pcover::after { content: ""; position: absolute; inset: 0; background-image: radial-gradient(rgba(255,255,255,.18) 1px, transparent 1px); background-size: 14px 14px; }
+  .picon { position: absolute; top: 12px; width: 34px; height: 34px; border-radius: 10px; background: rgba(0,0,0,.25); color: #fff; display: flex; align-items: center; justify-content: center; z-index: 1; font-size: 16px; transition: background .12s; }
+  .picon:hover { background: rgba(0,0,0,.4); }
+  .picon.close { right: 12px; } .picon.back { left: 12px; }
+  .pbody { padding: 0 24px 24px; text-align: center; }
+  .pav { width: 104px; height: 104px; font-size: 40px; margin: -52px auto 12px; border: 4px solid var(--panel); box-shadow: 0 6px 20px rgba(16,24,40,.15); }
+  .pav .dot { width: 18px; height: 18px; right: 4px; bottom: 4px; border-width: 3px; }
+  .pname { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -.01em; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .psub { color: var(--muted); font-size: 13px; margin-top: 3px; }
+  .psub.on { color: var(--online); }
+  .chip { display: inline-block; font-size: 11px; font-weight: 600; color: var(--accent-text); background: var(--accent-soft); padding: 3px 9px; border-radius: 20px; }
+  .pbio { margin: 14px 0 0; font-size: 14.5px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .pbio.empty-bio { color: var(--faint); font-style: italic; }
+  .pstats { display: grid; grid-template-columns: repeat(2, 1fr); margin: 20px 0 18px; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+  .pstats button { padding: 12px 6px; transition: background .12s; }
+  .pstats button + button { border-left: 1px solid var(--line); }
+  .pstats button:hover { background: var(--hover); }
+  .pstats b { display: block; font-size: 19px; font-weight: 700; }
+  .pstats span { font-size: 12px; color: var(--muted); }
+  .pactions { display: flex; gap: 10px; }
+  .pactions .btn { flex: 1; padding: 11px 14px; font-size: 14px; border-radius: 12px; display: flex; align-items: center; justify-content: center; gap: 6px; }
+  .btn.ghost { background: var(--panel); }
+  .btn.unfollow { background: var(--panel); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, transparent); }
+  .btn.unfollow:hover { background: color-mix(in srgb, var(--danger) 10%, transparent); }
+  .btn.sm { padding: 6px 12px; font-size: 12.5px; flex: none; }
+  .pmeta { margin-top: 16px; font-size: 12px; color: var(--faint); }
+  .plist-title { margin: 18px 0 10px; font-size: 18px; font-weight: 700; text-align: left; }
+  .plist { text-align: left; margin: 0 -10px; }
+  .plist .row .avatar { width: 42px; height: 42px; }
+  .plist .empty { padding: 30px 10px; }
+
+  .pedit { text-align: left; margin-top: 4px; }
+  .pedit .photo-actions { display: flex; justify-content: center; gap: 8px; margin: 0 0 20px; }
+  .pedit label.lbl { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+  .pedit textarea { width: 100%; min-height: 96px; resize: vertical; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--soft); color: var(--text);
+    font: inherit; font-size: 14.5px; line-height: 1.5; outline: none; transition: border .15s, box-shadow .15s, background .15s; }
+  .pedit textarea:focus { border-color: var(--accent-2); background: var(--panel); box-shadow: 0 0 0 4px var(--accent-soft); }
+  .pedit .count { text-align: right; font-size: 12px; color: var(--faint); margin-top: 4px; }
+  .pedit .pactions { margin-top: 18px; }
+  .pav.editable { position: relative; cursor: pointer; }
+  .pav.editable::after { content: "📷"; position: absolute; inset: 0; border-radius: 50%; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; font-size: 26px; opacity: 0; transition: opacity .15s; }
+  .pav.editable:hover::after { opacity: 1; }
+
+  /* ---------- mobile ---------- */
+  @media (max-width: 860px) {
+    #app { margin: 0; width: 100%; height: 100vh; border-radius: 0; border: 0; flex-direction: column-reverse; }
+    #rail { width: 100%; flex-direction: row; padding: 8px 14px; border-right: 0; border-top: 1px solid var(--line); }
+    #rail > .logo { display: none; }
+    .tabs { flex-direction: row; flex: 1; justify-content: space-around; }
+    .tab::after { display: none; }
+    #rail .avatar { margin: 0 0 0 6px; }
+    #side { width: 100%; flex: 1; border-right: 0; }
+    #main { display: none; }
+    #app.chatting #side, #app.chatting #rail { display: none; }
+    #app.chatting #main { display: flex; flex: 1; }
+    #back { display: block; }
+    #messages { padding: 14px 12px; }
+    .msg { max-width: 82%; }
+    #localVideo { width: 110px; right: 12px; top: 12px; }
+  }
+</style>
+</head>
+<body data-theme="light">
+
+<div id="login">
+  <div class="card">
+    <div class="logo"><svg class="mark" viewBox="0 0 64 64" aria-hidden="true"><path d="M32 12c-11 0-20 7.6-20 17 0 5.2 2.7 9.8 6.9 12.9L17.5 51l8.8-4.2c1.8.5 3.7.7 5.7.7 11 0 20-7.6 20-17.5S43 12 32 12z" fill="#fff"/><path d="M19 30h7l3.5-7 5.5 13 3.5-6H45" fill="none" stroke="#111111" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+    <h1><span class="grad-text">Pulse</span></h1>
+    <p>Talk, call and stay close to your people</p>
+    <div class="field"><input id="user" placeholder="What should friends call you?" maxlength="30" autofocus></div>
+    <button class="primary" onclick="join()">Get started <span>→</span></button>
+  </div>
+</div>
+
+<div id="app">
+  <nav id="rail" class="panel">
+    <div class="logo"><svg class="mark" viewBox="0 0 64 64" aria-hidden="true"><path d="M32 12c-11 0-20 7.6-20 17 0 5.2 2.7 9.8 6.9 12.9L17.5 51l8.8-4.2c1.8.5 3.7.7 5.7.7 11 0 20-7.6 20-17.5S43 12 32 12z" fill="#fff"/><path d="M19 30h7l3.5-7 5.5 13 3.5-6H45" fill="none" stroke="#111111" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+    <div class="tabs">
+      <button class="tab on" data-tab="chats" data-label="Chats" aria-label="Chats">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8.5 8.5 0 0 1-12.4 7.6L3 21l1.4-5.6A8.5 8.5 0 1 1 21 12z"/></svg>
+      </button>
+      <button class="tab" data-tab="people" data-label="Find people" aria-label="People">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="4"/><path d="M2 21v-1a6 6 0 0 1 12 0v1"/><path d="M19 8v6M16 11h6"/></svg>
+      </button>
+      <button class="tab" data-tab="requests" data-label="Requests" aria-label="Requests">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg>
+        <span class="pill" id="reqCount" style="display:none"></span>
+      </button>
+    </div>
+    <button class="railbtn" onclick="nextTheme()" title="Change theme" aria-label="Change theme">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><circle cx="6.5" cy="12.5" r="1.5"/><path d="M12 2a10 10 0 1 0 0 20c1.1 0 2-.9 2-2 0-.5-.2-1-.5-1.3-.3-.4-.5-.8-.5-1.3 0-1.1.9-2 2-2h2.4A5.6 5.6 0 0 0 22 9.8C22 5.5 17.5 2 12 2z"/></svg>
+      <span class="swatch"></span>
+    </button>
+    <div class="avatar clickable" id="meAvatar" title="My profile" onclick="openProfile(me)"></div>
+  </nav>
+
+  <div id="side" class="panel">
+    <div class="sidehead">
+      <small>Hi, <span id="meName"></span> 👋</small>
+      <h2 id="sideTitle">Chats</h2>
+    </div>
+    <div class="searchbox">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="search" placeholder="Search" autocomplete="off">
+    </div>
+    <div id="list"></div>
+  </div>
+
+  <div id="main" class="panel">
+    <div id="placeholder">
+      <div class="orbit">
+        <div class="ring"></div><div class="ring r2"></div>
+        <div class="logo"><svg class="mark" viewBox="0 0 64 64" aria-hidden="true"><path d="M32 12c-11 0-20 7.6-20 17 0 5.2 2.7 9.8 6.9 12.9L17.5 51l8.8-4.2c1.8.5 3.7.7 5.7.7 11 0 20-7.6 20-17.5S43 12 32 12z" fill="#fff"/><path d="M19 30h7l3.5-7 5.5 13 3.5-6H45" fill="none" stroke="#111111" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      </div>
+      <h2>Start a <span class="grad-text">conversation</span></h2>
+      <div>Pick a friend on the left, or find new people to connect with.</div>
+    </div>
+    <div id="chat">
+      <div class="head">
+        <button id="back" onclick="closeChat()" aria-label="Back">←</button>
+        <div class="avatar clickable" id="peerAvatar" onclick="openProfile(current)" title="View profile"></div>
+        <div class="clickable" onclick="openProfile(current)"><div class="title" id="peerName"></div><div class="sub" id="peerStatus"></div></div>
+        <button class="callbtn" onclick="startCall()" title="Video call" aria-label="Video call">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="#fff"><path d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11z"/></svg>
+        </button>
+      </div>
+      <div id="status">Disconnected. Refresh to reconnect.</div>
+      <div id="messages"></div>
+      <div id="form">
+        <input id="input" placeholder="Write a message…" autocomplete="off">
+        <button id="send" onclick="send()" aria-label="Send">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
+        </button>
+      </div>
+      <div id="locked"></div>
+    </div>
+  </div>
+</div>
+
+<div id="incoming" class="overlay">
+  <div class="callcard">
+    <span class="tag">📹 Video call</span>
+    <div class="avatar bigav" id="inAvatar"></div>
+    <h2 id="inName"></h2>
+    <p>is calling you</p>
+    <div class="row2">
+      <div><button class="ctl decline big" onclick="rejectCall()" aria-label="Decline">✕</button><span class="lbl">Decline</span></div>
+      <div><button class="ctl accept big" onclick="acceptCall()" aria-label="Accept">📹</button><span class="lbl">Accept</span></div>
+    </div>
+  </div>
+</div>
+
+<div id="profile" class="modal" onclick="if (event.target === this) closeProfile()">
+  <div class="pcard" id="pcard"></div>
+</div>
+<input type="file" id="photoInput" accept="image/png,image/jpeg,image/webp" hidden>
+
+<div id="toasts"></div>
+
+<div id="callView" class="overlay">
+  <video id="remoteVideo" autoplay playsinline></video>
+  <div id="ringing">
+    <div class="avatar bigav" id="ringAvatar"></div>
+    <h2 id="ringName"></h2>
+    <div id="ringText">Calling</div>
+  </div>
+  <video id="localVideo" autoplay playsinline muted></video>
+  <div id="callInfo"><span id="callName"></span><small id="callState"></small></div>
+  <div id="controls">
+    <button class="ctl" id="micBtn" onclick="toggleTrack('audio', this)" aria-label="Mute">🎤</button>
+    <button class="ctl" id="camBtn" onclick="toggleTrack('video', this)" aria-label="Camera">📷</button>
+    <button class="ctl end" onclick="endCall(true)" aria-label="End call">📞</button>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => s.replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const GRADS = [["#1f2937","#4b5563"],["#ec4899","#f472b6"],["#14b8a6","#2dd4bf"],["#f59e0b","#fbbf24"],["#78350f","#a16207"],["#44403c","#78716c"],["#10b981","#34d399"],["#f43f5e","#fb7185"]];
+const hash = n => [...n].reduce((a, c) => a + c.charCodeAt(0), 0);
+const bg = n => { const g = GRADS[hash(n) % GRADS.length]; return `linear-gradient(135deg,${g[0]},${g[1]})`; };
+const initial = n => esc(n[0].toUpperCase());
+
+let ws, me, current = null, tab = "chats", users = [];
+const convos = {}, unread = {};
+let lastDay = null, lastFrom = null;
+
+/* colour themes, remembered in this browser */
+const THEMES = ["light", "dark"];
+const MOON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>';
+const SUN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
+function setTheme(t) {
+  document.body.dataset.theme = t;
+  const b = document.querySelector(".railbtn");
+  if (b) { b.innerHTML = t === "dark" ? SUN : MOON; b.title = t === "dark" ? "Light mode" : "Dark mode"; }
+  try { localStorage.setItem("theme", t); } catch {}
+}
+function nextTheme() { setTheme(document.body.dataset.theme === "dark" ? "light" : "dark"); }
+setTheme("light");
+try { const saved = localStorage.getItem("theme"); if (THEMES.includes(saved)) setTheme(saved); } catch {}
+const TAB_TITLES = {chats: "Chats", people: "Find people", requests: "Requests"};
+
+const time = ts => new Date(ts).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"});
+const dayLabel = ts => {
+  const d = new Date(ts);
+  if (d.toDateString() === new Date().toDateString()) return "Today";
+  if (d.toDateString() === new Date(Date.now() - 864e5).toDateString()) return "Yesterday";
+  return d.toLocaleDateString([], {day: "numeric", month: "short", year: "numeric"});
+};
+const peerOf = m => m.from === me ? m.to : m.from;
+const act = (action, to) => ws.readyState === 1 && ws.send(JSON.stringify({action, to}));
+const rel = n => (users.find(u => u.name === n) || {}).relation;
+
+function join() {
+  me = $("user").value.trim();
+  if (!me) return $("user").focus();
+  unlockAudio();  // must happen on a click so ringtones can play later
+  if ("Notification" in window && Notification.permission === "default") Notification.requestPermission();
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  ws = new WebSocket(`${proto}://${location.host}/ws/${encodeURIComponent(me)}`);
+  ws.onopen = () => {
+    $("login").style.display = "none";
+    $("app").style.display = "flex";
+    $("meName").textContent = me;
+    paintAvatar($("meAvatar"), me);
+    $("status").style.display = "none";
+  };
+  ws.onmessage = e => handle(JSON.parse(e.data));
+  ws.onclose = () => { $("status").style.display = "block"; };
+}
+
+function handle(d) {
+  if (d.type === "state") {
+    users = d.users;
+    users.forEach(u => photos[u.name] = u.photo);
+    if (d.me) photos[me] = d.me.photo;
+    paintAvatar($("meAvatar"), me);
+    if (current) paintAvatar($("peerAvatar"), current);
+    renderList(); updateChatHeader();
+    refreshProfile();  // relation/online may have changed
+  } else if (d.type === "history") {
+    d.messages.forEach(m => {
+      const p = peerOf(m);
+      (convos[p] ||= []).push(m);
+      if (m.to === me && m.status !== "seen") unread[p] = (unread[p] || 0) + 1;
+    });
+    renderList();
+  } else if (d.type === "signal") {
+    onSignal(d.from, d.data);
+  } else if (d.type === "profile") {
+    onProfile(d);
+  } else if (d.type === "notice") {
+    toast(d.text);
+  } else if (d.type === "receipt") {
+    applyReceipt(d.ids, d.status);
+  } else if (d.type === "message") {
+    const p = peerOf(d);
+    (convos[p] ||= []).push(d);
+    if (p === current) { appendMsg(d); markSeen(p); }
+    else if (d.from !== me) unread[p] = (unread[p] || 0) + 1;
+    renderList();
+  }
+}
+
+/* ---------- read receipts ---------- */
+const RANK = {sent: 0, delivered: 1, seen: 2};
+const TICK1 = '<svg viewBox="0 0 16 11" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 6l3 3L13 1.8"/></svg>';
+const TICK2 = '<svg viewBox="0 0 18 11" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 6l3 3L11 1.8"/><path d="M8 8.6l.4.4L16.5 1.8"/></svg>';
+const tick = s => `<span class="tick ${s}" title="${s === "seen" ? "Seen" : s === "delivered" ? "Delivered" : "Sent"}">${s === "sent" ? TICK1 : TICK2}</span>`;
+
+function applyReceipt(ids, status) {
+  const set = new Set(ids);
+  for (const list of Object.values(convos)) {
+    for (const m of list) {
+      if (!set.has(m.id) || m.from !== me || RANK[status] <= RANK[m.status]) continue;
+      m.status = status;
+      const t = document.querySelector(`.msg[data-id="${m.id}"] .tick`);
+      if (t) t.outerHTML = tick(status);
+    }
+  }
+  renderList();
+}
+
+// tell the server I've read the open chat (only while the tab is actually visible)
+function markSeen(peer) {
+  if (!peer || peer !== current || document.hidden || !ws || ws.readyState !== 1) return;
+  const pending = (convos[peer] || []).filter(m => m.from === peer && m.status !== "seen");
+  if (!pending.length) return;
+  pending.forEach(m => m.status = "seen");
+  unread[peer] = 0;
+  ws.send(JSON.stringify({action: "seen", to: peer}));
+}
+document.addEventListener("visibilitychange", () => { if (!document.hidden) { markSeen(current); renderList(); } });
+window.addEventListener("focus", () => markSeen(current));
+
+/* ---------- last seen ---------- */
+function lastSeenText(u) {
+  if (!u) return "";
+  if (u.online) return "online";
+  if (!u.last_seen) return "offline";
+  const mins = (Date.now() - new Date(u.last_seen)) / 60000;
+  if (mins < 1) return "last seen just now";
+  if (mins < 60) return `last seen ${Math.floor(mins)} min ago`;
+  const dl = dayLabel(u.last_seen), t = time(u.last_seen);
+  if (dl === "Today") return `last seen today at ${t}`;
+  if (dl === "Yesterday") return `last seen yesterday at ${t}`;
+  return `last seen ${dl} at ${t}`;
+}
+setInterval(() => { if (me) { updateChatHeader(); renderList(); } }, 30000);
+
+function userRow(u, right, clickable) {
+  const last = (convos[u.name] || []).at(-1);
+  let sub;
+  if (last && last.from === me) sub = tick(last.status || "sent") + esc(last.text);
+  else if (last) sub = esc(last.text);
+  else { const s = lastSeenText(u); sub = esc(s[0].toUpperCase() + s.slice(1)); }
+  const n = unread[u.name] || 0;
+  return `<div class="row ${u.name === current ? "active" : ""} ${n ? "unread" : ""}" ${clickable ? `data-open="${esc(u.name)}"` : ""}>
+    <div class="avatar clickable" data-profile="${esc(u.name)}" title="View profile" style="${avatarStyle(u.name)}">${photos[u.name] ? "" : initial(u.name)}${u.online ? '<span class="dot"></span>' : ""}</div>
+    <div class="info"><div class="top"><span class="nm">${esc(u.name)}</span><span class="tm">${last && clickable ? time(last.ts) : ""}</span></div>
+    <div class="last">${sub}</div></div>${right}</div>`;
+}
+
+function renderList() {
+  const q = $("search").value.trim().toLowerCase();
+  const match = u => u.name.toLowerCase().includes(q);
+  const incoming = users.filter(u => u.relation === "received");
+  const pill = $("reqCount");
+  pill.textContent = incoming.length; pill.style.display = incoming.length ? "inline-flex" : "none";
+  let html = "";
+
+  if (tab === "chats") {
+    const f = users.filter(u => u.relation === "friend" && match(u)).sort((a, b) =>
+      (+new Date((convos[b.name] || []).at(-1)?.ts || 0)) - (+new Date((convos[a.name] || []).at(-1)?.ts || 0)));
+    html = f.map(u => userRow(u, (unread[u.name] ? `<span class="badge">${unread[u.name]}</span>` : ""), true)).join("")
+      || `<div class="empty"><span class="ico">💬</span>No friends yet.<br>Open <b>Find people</b> to send a request.</div>`;
+  } else if (tab === "people") {
+    const p = users.filter(u => u.relation !== "friend" && u.relation !== "received" && match(u));
+    html = p.map(u => userRow(u, u.relation === "sent"
+      ? `<button class="btn wait" data-cancel="${esc(u.name)}">Pending ✕</button>`
+      : `<button class="btn add" data-req="${esc(u.name)}">Add</button>`, false)).join("")
+      || `<div class="empty"><span class="ico">🔭</span>No one new to add right now.<br>Share the link so friends can join.</div>`;
+  } else {
+    const r = incoming.filter(match);
+    html = r.map(u => userRow(u, `<div class="acts"><button class="btn ok" data-acc="${esc(u.name)}">Accept</button><button class="btn no" data-dec="${esc(u.name)}">✕</button></div>`, false)).join("")
+      || `<div class="empty"><span class="ico">🔔</span>No pending requests.</div>`;
+    const sent = users.filter(u => u.relation === "sent" && match(u));
+    if (sent.length) html += `<div class="section">Sent</div>` + sent.map(u => userRow(u, `<button class="btn wait" data-cancel="${esc(u.name)}">Cancel</button>`, false)).join("");
+  }
+  $("list").innerHTML = html;
+}
+
+$("list").addEventListener("click", e => {
+  const pf = e.target.closest("[data-profile]");
+  if (pf) return openProfile(pf.dataset.profile);
+  const t = e.target.closest("[data-open],[data-req],[data-cancel],[data-acc],[data-dec]");
+  if (!t) return;
+  const d = t.dataset;
+  if (d.req) act("request", d.req);
+  else if (d.cancel) act("cancel", d.cancel);
+  else if (d.acc) act("accept", d.acc);
+  else if (d.dec) act("decline", d.dec);
+  else if (d.open) openChat(d.open);
+});
+
+document.querySelector(".tabs").addEventListener("click", e => {
+  const t = e.target.closest(".tab"); if (!t) return;
+  tab = t.dataset.tab;
+  document.querySelectorAll(".tab").forEach(x => x.classList.toggle("on", x === t));
+  $("sideTitle").textContent = TAB_TITLES[tab];
+  renderList();
+});
+$("search").addEventListener("input", renderList);
+
+function openChat(name) {
+  current = name; unread[name] = 0;
+  $("placeholder").style.display = "none";
+  $("chat").style.display = "flex";
+  $("app").classList.add("chatting");
+  $("peerName").textContent = name;
+  paintAvatar($("peerAvatar"), name);
+  $("messages").innerHTML = ""; lastDay = null; lastFrom = null;
+  (convos[name] || []).forEach(appendMsg);
+  markSeen(name);
+  updateChatHeader(); renderList(); $("input").focus();
+}
+
+function closeChat() {
+  current = null;
+  $("chat").style.display = "none";
+  $("placeholder").style.display = "flex";
+  $("app").classList.remove("chatting");
+  renderList();
+}
+
+function updateChatHeader() {
+  if (!current) return;
+  const u = users.find(u => u.name === current);
+  if (!u || u.relation !== "friend") return closeChat();
+  const s = $("peerStatus");
+  s.textContent = lastSeenText(u);
+  s.className = "sub" + (u.online ? " on" : "");
+}
+
+function appendMsg(m) {
+  const box = $("messages");
+  const dl = dayLabel(m.ts);
+  if (dl !== lastDay) {
+    lastDay = dl;
+    const d = document.createElement("div"); d.className = "day"; d.textContent = dl; box.appendChild(d);
+    lastFrom = null;
+  }
+  const el = document.createElement("div");
+  el.className = "msg " + (m.from === me ? "mine" : "theirs") + (lastFrom === m.from ? " cont" : "");
+  lastFrom = m.from;
+  if (m.id != null) el.dataset.id = m.id;
+  el.innerHTML = `${esc(m.text)}<span class="t">${time(m.ts)}${m.from === me ? tick(m.status || "sent") : ""}</span>`;
+  box.appendChild(el);
+  box.scrollTop = box.scrollHeight;
+}
+
+function send() {
+  const v = $("input").value.trim();
+  if (v && current && rel(current) === "friend" && ws.readyState === 1) {
+    ws.send(JSON.stringify({action: "message", to: current, text: v}));
+    $("input").value = "";
+  }
+}
+
+/* ---------- avatars (photo if the user set one, otherwise coloured initial) ---------- */
+const photos = {};
+function avatarStyle(name) {
+  const p = photos[name];
+  return p ? `background:center/cover no-repeat url('${esc(p)}')` : `background:${bg(name)}`;
+}
+function paintAvatar(el, name) {
+  if (!el || !name) return;
+  const p = photos[name], dot = el.querySelector(".dot");
+  if (p) { el.style.background = `center/cover no-repeat url('${p}')`; el.textContent = ""; }
+  else { el.style.background = bg(name); el.textContent = name[0].toUpperCase(); }
+  if (dot) el.appendChild(dot);
+}
+const avatarHTML = (name, cls = "", extra = "") =>
+  `<div class="avatar ${cls}" style="${avatarStyle(name)}">${photos[name] ? "" : initial(name)}${extra}</div>`;
+
+// crop to a square and shrink to 320px JPEG so it stays small (~30 KB)
+function readPhoto(file) {
+  return new Promise((resolve, reject) => {
+    if (!file.type.startsWith("image/")) return reject(new Error("Please choose an image file"));
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => {
+      const s = Math.min(img.width, img.height), c = document.createElement("canvas");
+      c.width = c.height = 320;
+      c.getContext("2d").drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, 320, 320);
+      URL.revokeObjectURL(url);
+      resolve(c.toDataURL("image/jpeg", 0.85));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Could not read that image")); };
+    img.src = url;
+  });
+}
+
+/* ---------- profile card ---------- */
+let prof = null, profName = null, profView = "main", editPhoto = null, editPhotoChanged = false, bioDraft = "";
+const PCLOSE = `<button class="picon close" data-act="close" aria-label="Close">✕</button>`;
+const PBACK = `<button class="picon back" data-act="back" aria-label="Back">←</button>`;
+const joinedText = iso => "Joined " + new Date(iso).toLocaleDateString([], {month: "long", year: "numeric"});
+
+function openProfile(name) {
+  if (!name) return;
+  profName = name; prof = null; profView = "main";
+  $("profile").classList.add("show");
+  renderProfile();
+  act("get_profile", name);
+}
+function closeProfile() { $("profile").classList.remove("show"); profName = null; prof = null; }
+function refreshProfile() { if (profName && profView !== "edit") act("get_profile", profName); }
+function onProfile(d) {
+  photos[d.name] = d.photo;
+  if (d.name === me) paintAvatar($("meAvatar"), me);
+  if (d.name !== profName) return;
+  prof = d;
+  if (profView !== "edit") renderProfile();
+}
+
+function renderProfile() {
+  if (!prof) {
+    $("pcard").innerHTML = `<div class="pcover">${PCLOSE}</div><div class="pbody">${avatarHTML(profName, "pav")}
+      <h2 class="pname">${esc(profName)}</h2><div class="psub">Loading…</div></div>`;
+    return;
+  }
+  if (profView === "edit") return renderEdit();
+  if (profView !== "main") return renderPeople();
+
+  const p = prof, self = p.relation === "self";
+  const status = self ? "Your profile" : lastSeenText(p);
+  const chip = !self && p.follows_me ? ` <span class="chip">Follows you</span>` : "";
+  let actions;
+  if (self) {
+    actions = `<button class="btn add" data-act="edit">✏️ Edit profile</button>`;
+  } else {
+    const follow = p.i_follow
+      ? `<button class="btn unfollow" data-act="unfollow">Unfollow</button>`
+      : `<button class="btn add" data-act="follow">${p.follows_me ? "Follow back" : "Follow"}</button>`;
+    const friend = {
+      friend: `<button class="btn ghost" data-act="message">💬 Message</button>`,
+      sent: `<button class="btn ghost" data-act="cancel">Requested ✕</button>`,
+      received: `<button class="btn ok" data-act="accept">Accept request</button>`,
+      none: `<button class="btn ghost" data-act="request">＋ Add friend</button>`,
+    }[p.relation] || "";
+    actions = follow + friend;
+  }
+  const bio = p.bio ? esc(p.bio) : (self ? "Add a bio so people know a bit about you." : "No bio yet.");
+  $("pcard").innerHTML = `<div class="pcover">${PCLOSE}</div>
+    <div class="pbody">
+      ${avatarHTML(p.name, "pav", p.online ? '<span class="dot"></span>' : "")}
+      <h2 class="pname">${esc(p.name)}</h2>
+      <div class="psub ${p.online && !self ? "on" : ""}">${esc(status)}${chip}</div>
+      <p class="pbio ${p.bio ? "" : "empty-bio"}">${bio}</p>
+      <div class="pstats">
+        <button data-act="list" data-kind="followers"><b>${p.followers.length}</b><span>Followers</span></button>
+        <button data-act="list" data-kind="following"><b>${p.following.length}</b><span>Following</span></button>
+      </div>
+      <div class="pactions">${actions}</div>
+      <div class="pmeta">${joinedText(p.joined)}</div>
+    </div>`;
+}
+
+function renderPeople() {
+  const p = prof, kind = profView, names = p[kind] || [];
+  const title = {followers: "Followers", following: "Following", friends: "Friends"}[kind];
+  const emptyText = {followers: "No followers yet.", following: "Not following anyone yet.", friends: "No friends yet."}[kind];
+  const mine = new Set(p.my_following || []);
+  const rowBtn = n => n === me ? "" : mine.has(n)
+    ? `<button class="btn unfollow sm" data-act="unfollow-user" data-user="${esc(n)}">Unfollow</button>`
+    : `<button class="btn add sm" data-act="follow-user" data-user="${esc(n)}">Follow</button>`;
+  const rows = names.map(n => `<div class="row" data-act="open-user" data-user="${esc(n)}">${avatarHTML(n)}
+      <div class="info"><div class="nm">${esc(n)}${n === me ? ' <span class="chip">You</span>' : ""}</div></div>${rowBtn(n)}</div>`).join("")
+    || `<div class="empty">${emptyText}</div>`;
+  $("pcard").innerHTML = `<div class="pcover" style="height:64px">${PBACK}${PCLOSE}</div>
+    <div class="pbody"><h3 class="plist-title">${title} · ${names.length}</h3><div class="plist">${rows}</div></div>`;
+}
+
+function renderEdit() {
+  const photo = editPhotoChanged ? editPhoto : prof.photo;
+  const av = photo
+    ? `<div class="avatar pav editable" data-act="pick" title="Change photo" style="background:center/cover no-repeat url('${esc(photo)}')"></div>`
+    : `<div class="avatar pav editable" data-act="pick" title="Add photo" style="background:${bg(me)}">${initial(me)}</div>`;
+  $("pcard").innerHTML = `<div class="pcover">${PBACK}${PCLOSE}</div>
+    <div class="pbody">${av}
+      <h2 class="pname">Edit profile</h2>
+      <div class="pedit">
+        <div class="photo-actions" style="margin-top:14px">
+          <button class="btn" data-act="pick">${photo ? "Change photo" : "Upload photo"}</button>
+          ${photo ? '<button class="btn no" data-act="remove-photo">Remove</button>' : ""}
+        </div>
+        <label class="lbl" for="bioInput">Bio</label>
+        <textarea id="bioInput" maxlength="160" placeholder="Tell people a little about yourself">${esc(bioDraft)}</textarea>
+        <div class="count"><span id="bioCount">${bioDraft.length}</span>/160</div>
+        <div class="pactions"><button class="btn ghost" data-act="back">Cancel</button><button class="btn add" data-act="save">Save changes</button></div>
+      </div>
+    </div>`;
+  $("bioInput").addEventListener("input", e => { bioDraft = e.target.value; $("bioCount").textContent = bioDraft.length; });
+}
+
+$("pcard").addEventListener("click", e => {
+  const t = e.target.closest("[data-act]");
+  if (!t) return;
+  const a = t.dataset.act;
+  switch (a) {
+    case "close": return closeProfile();
+    case "back": profView = "main"; return renderProfile();
+    case "edit": profView = "edit"; bioDraft = prof.bio || ""; editPhoto = prof.photo; editPhotoChanged = false; return renderEdit();
+    case "list": profView = t.dataset.kind; return renderPeople();
+    case "open-user": return openProfile(t.dataset.user);
+    case "follow": case "request": case "cancel": case "accept":
+      return act(a, profName);
+    case "unfollow":
+      if (unfollow(profName)) act("get_profile", profName);
+      return;
+    case "follow-user": case "unfollow-user": {
+      const who = t.dataset.user;
+      if (a === "follow-user") act("follow", who);
+      else if (!unfollow(who)) return;
+      return act("get_profile", profName);  // refresh the open list
+    }
+    case "message": { const n = profName; closeProfile(); return openChat(n); }
+    case "pick": return $("photoInput").click();
+    case "remove-photo": editPhoto = null; editPhotoChanged = true; return renderEdit();
+    case "save": {
+      if (!ws || ws.readyState !== 1) return toast("Not connected", true);
+      const msg = {action: "profile_update", bio: bioDraft};
+      if (editPhotoChanged) msg.photo = editPhoto;
+      ws.send(JSON.stringify(msg));
+      profView = "main";
+      toast("Profile updated");
+      return;  // the server replies with the updated profile
+    }
+  }
+});
+// returns false if the user cancelled
+function unfollow(name) {
+  const isFriend = rel(name) === "friend";
+  if (isFriend && !confirm(`Unfollow ${name}?\n\nYou are friends. Unfollowing also removes the friendship, so you won't be able to message or call each other.`)) return false;
+  act("unfollow", name);
+  toast(isFriend ? `Unfollowed ${name} · no longer friends` : `Unfollowed ${name}`);
+  return true;
+}
+
+$("photoInput").addEventListener("change", async e => {
+  const f = e.target.files[0];
+  e.target.value = "";
+  if (!f) return;
+  try { editPhoto = await readPhoto(f); editPhotoChanged = true; renderEdit(); }
+  catch (err) { toast(err.message, true); }
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape" && profName) closeProfile(); });
+
+/* ---------- video call (WebRTC) ---------- */
+const RTC_CONFIG = {iceServers: [{urls: "stun:stun.l.google.com:19302"}, {urls: "stun:stun1.l.google.com:19302"}]};
+let pc = null, localStream = null, callPeer = null, pendingOffer = null, pendingIce = [], ringTimer = null;
+let callStart = null, timerInt = null, titleInt = null, notif = null;
+
+const signal = (to, data) => ws.readyState === 1 && ws.send(JSON.stringify({action: "signal", to, data}));
+const setState = t => $("callState").textContent = t;
+const fmt = ms => { const s = Math.floor(ms / 1000); return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`; };
+
+/* sounds: generated with Web Audio, no audio files needed */
+let audioCtx = null, toneTimer = null;
+function unlockAudio() {
+  try { audioCtx ||= new (window.AudioContext || window.webkitAudioContext)(); audioCtx.resume(); } catch {}
+}
+function beep(freqs, dur, vol) {
+  if (!audioCtx) return;
+  const t = audioCtx.currentTime, g = audioCtx.createGain();
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(vol, t + 0.02);
+  g.gain.setValueAtTime(vol, t + dur - 0.05);
+  g.gain.linearRampToValueAtTime(0, t + dur);
+  g.connect(audioCtx.destination);
+  freqs.forEach(f => { const o = audioCtx.createOscillator(); o.frequency.value = f; o.connect(g); o.start(t); o.stop(t + dur); });
+}
+function playTone(kind) {
+  stopTone();
+  const play = kind === "incoming"
+    ? () => { beep([880, 1320], .35, .18); setTimeout(() => beep([880, 1320], .35, .18), 450); }
+    : () => beep([440, 480], 1.6, .08);
+  play();
+  toneTimer = setInterval(play, kind === "incoming" ? 2200 : 4000);
+}
+function stopTone() { clearInterval(toneTimer); toneTimer = null; }
+
+function toast(text, bad) {
+  const t = document.createElement("div");
+  t.className = "toast" + (bad ? " bad" : ""); t.textContent = text;
+  $("toasts").appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+
+function flashTitle(text) {
+  stopTitle(); let on = false;
+  titleInt = setInterval(() => { document.title = (on = !on) ? text : "Pulse"; }, 1000);
+}
+function stopTitle() { clearInterval(titleInt); titleInt = null; document.title = "Pulse"; }
+
+function notifyIncoming(from) {
+  if (!("Notification" in window) || Notification.permission !== "granted" || !document.hidden) return;
+  try {
+    notif = new Notification("Incoming video call", {body: `${from} is calling you`, tag: "call", requireInteraction: true});
+    notif.onclick = () => { window.focus(); notif && notif.close(); };
+  } catch {}
+}
+
+function closeIncoming() {
+  pendingOffer = null;
+  $("incoming").classList.remove("show");
+  stopTone(); stopTitle();
+  if (notif) { notif.close(); notif = null; }
+}
+
+async function getMedia() {
+  if (!navigator.mediaDevices) {
+    toast("Camera needs HTTPS. Open the app through the https tunnel link or http://localhost:8000.", true);
+    return null;
+  }
+  try {
+    return await navigator.mediaDevices.getUserMedia({video: true, audio: true});
+  } catch (e) {
+    toast("Could not access camera/microphone: " + e.message, true);
+    return null;
+  }
+}
+
+function createPC(peer) {
+  pc = new RTCPeerConnection(RTC_CONFIG);
+  localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+  pc.onicecandidate = e => e.candidate && signal(peer, {kind: "ice", candidate: e.candidate});
+  pc.ontrack = e => { $("remoteVideo").srcObject = e.streams[0]; };
+  pc.onconnectionstatechange = () => {
+    if (!pc) return;
+    if (pc.connectionState === "connected" && !callStart) {
+      $("ringing").classList.remove("show");
+      callStart = Date.now();
+      setState("00:00");
+      timerInt = setInterval(() => setState(fmt(Date.now() - callStart)), 1000);
+    }
+    if (["failed", "closed"].includes(pc.connectionState)) endCall(false, "Call failed (network blocked the connection)");
+  };
+}
+
+function showCall(peer, ringText) {
+  $("callName").textContent = peer;
+  setState("");
+  $("ringName").textContent = peer;
+  paintAvatar($("ringAvatar"), peer);
+  $("ringText").textContent = ringText;
+  $("ringing").classList.add("show");
+  $("localVideo").srcObject = localStream;
+  $("micBtn").classList.remove("off"); $("camBtn").classList.remove("off");
+  $("callView").classList.add("show");
+}
+
+async function startCall() {
+  if (!current || callPeer) return;
+  if (rel(current) !== "friend") return;
+  unlockAudio();
+  const stream = await getMedia(); if (!stream) return;
+  localStream = stream; callPeer = current; callStart = null;
+  createPC(callPeer);
+  showCall(callPeer, "Calling");
+  const offer = await pc.createOffer();
+  await pc.setLocalDescription(offer);
+  signal(callPeer, {kind: "offer", sdp: pc.localDescription});
+  ringTimer = setTimeout(() => endCall(true, "No answer"), 45000);
+}
+
+async function onSignal(from, d) {
+  if (d.kind === "offer") {
+    if (callPeer || pendingOffer) return signal(from, {kind: "busy"});
+    pendingOffer = {from, sdp: d.sdp}; pendingIce = [];
+    paintAvatar($("inAvatar"), from);
+    $("inName").textContent = from;
+    $("incoming").classList.add("show");
+    playTone("incoming");
+    flashTitle(`📞 ${from} is calling…`);
+    notifyIncoming(from);
+    signal(from, {kind: "ringing"});
+  } else if (d.kind === "ringing" && from === callPeer && !callStart) {
+    $("ringText").textContent = "Ringing";
+    playTone("outgoing");
+  } else if (d.kind === "answer" && from === callPeer && pc) {
+    clearTimeout(ringTimer);
+    stopTone();
+    $("ringText").textContent = "Connecting";
+    await pc.setRemoteDescription(d.sdp);
+    for (const c of pendingIce) await pc.addIceCandidate(c);
+    pendingIce = [];
+  } else if (d.kind === "ice") {
+    if (pc && pc.remoteDescription && from === callPeer) pc.addIceCandidate(d.candidate).catch(() => {});
+    else if (from === callPeer || (pendingOffer && pendingOffer.from === from)) pendingIce.push(d.candidate);
+  } else if (d.kind === "end" || d.kind === "reject" || d.kind === "busy" || d.kind === "unavailable") {
+    if (pendingOffer && pendingOffer.from === from) {
+      closeIncoming();
+      toast(`Missed call from ${from}`);
+      return;
+    }
+    if (from === callPeer) {
+      const msg = {reject: `${from} declined the call`, busy: `${from} is on another call`, unavailable: `${from} is offline`}[d.kind];
+      endCall(false, msg);
+    }
+  }
+}
+
+async function acceptCall() {
+  if (!pendingOffer) return;
+  const {from, sdp} = pendingOffer;
+  unlockAudio();
+  closeIncoming();
+  callPeer = from; callStart = null;  // set early so ICE candidates are queued while the camera prompt is open
+  const stream = await getMedia();
+  if (!stream) { signal(from, {kind: "reject"}); callPeer = null; pendingIce = []; return; }
+  localStream = stream;
+  createPC(from);
+  showCall(from, "Connecting");
+  await pc.setRemoteDescription(sdp);
+  for (const c of pendingIce) await pc.addIceCandidate(c);
+  pendingIce = [];
+  const answer = await pc.createAnswer();
+  await pc.setLocalDescription(answer);
+  signal(from, {kind: "answer", sdp: pc.localDescription});
+}
+
+function rejectCall() {
+  if (!pendingOffer) return;
+  signal(pendingOffer.from, {kind: "reject"});
+  pendingIce = [];
+  closeIncoming();
+}
+
+function endCall(notify, message) {
+  clearTimeout(ringTimer);
+  stopTone();
+  clearInterval(timerInt); timerInt = null;
+  if (notify && callPeer) signal(callPeer, {kind: "end"});
+  if (pc) { pc.onconnectionstatechange = null; pc.close(); pc = null; }
+  if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
+  $("remoteVideo").srcObject = null; $("localVideo").srcObject = null;
+  $("callView").classList.remove("show");
+  $("ringing").classList.remove("show");
+  const wasConnected = callStart;
+  callPeer = null; pendingIce = []; callStart = null;
+  if (message) toast(message, true);
+  else if (wasConnected) toast(`Call ended · ${fmt(Date.now() - wasConnected)}`);
+}
+
+function toggleTrack(kind, btn) {
+  if (!localStream) return;
+  const tracks = kind === "audio" ? localStream.getAudioTracks() : localStream.getVideoTracks();
+  const on = !tracks[0]?.enabled;
+  tracks.forEach(t => t.enabled = on);
+  btn.classList.toggle("off", !on);
+}
+
+$("input").addEventListener("keydown", e => e.key === "Enter" && send());
+$("user").addEventListener("keydown", e => e.key === "Enter" && join());
+</script>
+</body>
+</html>
