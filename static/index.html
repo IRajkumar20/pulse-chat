@@ -171,6 +171,53 @@
   #send:hover { background: var(--accent-2); }
   #send:active { transform: scale(.95); }
   #locked { display: none; }
+
+  /* ---------- emoji / GIF / sticker messages ---------- */
+  .msg.media { padding: 4px 4px 5px; }
+  .msg.media img { display: block; width: min(240px, 62vw); height: auto; border-radius: 12px; background: var(--soft); }
+  .msg.media .t { padding: 2px 6px 0; }
+  .msg.sticker, .msg.jumbo { background: none !important; border: 0 !important; box-shadow: none !important; }
+  .msg.sticker { padding: 0; }
+  .msg.sticker img { display: block; width: 128px; height: 128px; }
+  .msg.jumbo { font-size: 42px; line-height: 1.15; padding: 0 2px; }
+  .msg.sticker .t, .msg.jumbo .t { color: var(--faint) !important; font-size: 10.5px; }
+  .msg.sticker .tick.seen, .msg.jumbo .tick.seen { color: #0ea5e9; }
+
+  /* ---------- picker panel ---------- */
+  #chat { position: relative; }
+  .iconbtn { width: 44px; height: 44px; border-radius: 12px; color: var(--muted); display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background .12s, color .12s; }
+  .iconbtn:hover, .iconbtn.on { background: var(--hover); color: var(--text); }
+  .picker { position: absolute; left: 16px; bottom: 80px; z-index: 4; width: min(380px, calc(100% - 32px)); height: 380px;
+    display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
+    box-shadow: 0 16px 48px rgba(16,24,40,.18); overflow: hidden; animation: popIn .16s ease-out; }
+  .picker[hidden], .ppane[hidden] { display: none; }
+  .ptabs { display: flex; gap: 4px; padding: 8px; border-bottom: 1px solid var(--line); }
+  .ptab { flex: 1; padding: 7px; border-radius: 9px; font-size: 13px; font-weight: 600; color: var(--muted); }
+  .ptab:hover { background: var(--hover); }
+  .ptab.on { background: var(--accent-soft); color: var(--accent-text); }
+  .ppane { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+  .pscroll { flex: 1; overflow-y: auto; padding: 6px 8px 10px; }
+  .pfoot { padding: 6px 10px; font-size: 11px; color: var(--faint); text-align: right; border-top: 1px solid var(--line); }
+  .ecats { display: flex; gap: 2px; padding: 6px 8px 0; overflow-x: auto; }
+  .ecat { padding: 5px 8px; border-radius: 8px; font-size: 18px; line-height: 1; opacity: .55; }
+  .ecat:hover, .ecat.on { opacity: 1; background: var(--hover); }
+  .esec { padding: 8px 4px 4px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); }
+  .egrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(38px, 1fr)); }
+  .egrid button { height: 38px; border-radius: 8px; font-size: 24px; line-height: 1; }
+  .egrid button:hover { background: var(--hover); }
+  .psearch { margin: 8px 8px 2px; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--soft); outline: none; font-size: 14px; }
+  .psearch:focus { border-color: var(--accent-2); background: var(--panel); }
+  .ggrid { columns: 2; column-gap: 6px; }
+  .ggrid button { display: block; width: 100%; margin-bottom: 6px; border-radius: 10px; overflow: hidden; background: var(--soft); break-inside: avoid; }
+  .ggrid img { display: block; width: 100%; height: auto; }
+  .ggrid button:hover img { opacity: .85; }
+  .pmsg { padding: 30px 14px; text-align: center; color: var(--muted); font-size: 13px; line-height: 1.5; }
+  #gifMore .btn { display: block; margin: 4px auto 0; }
+  .sgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 4px; }
+  .sgrid button { height: 64px; border-radius: 12px; font-size: 42px; line-height: 1; transition: transform .1s, background .12s; }
+  .sgrid button:hover { background: var(--hover); transform: scale(1.08); }
+  body[data-theme="dark"] .picker { box-shadow: 0 16px 48px rgba(0,0,0,.5); }
+  @media (max-width: 860px) { .picker { left: 8px; width: calc(100% - 16px); height: 340px; bottom: 74px; } }
   #status { display: none; background: #fef3c7; color: #92400e; text-align: center; font-size: 13px; font-weight: 500; padding: 6px; }
 
   /* ---------- calls ---------- */
@@ -366,7 +413,30 @@
       </div>
       <div id="status">Disconnected. Refresh to reconnect.</div>
       <div id="messages"></div>
+      <div id="picker" class="picker" hidden>
+        <div class="ptabs" role="tablist">
+          <button type="button" class="ptab on" data-ptab="emoji">Emoji</button>
+          <button type="button" class="ptab" data-ptab="gif">GIFs</button>
+          <button type="button" class="ptab" data-ptab="sticker">Stickers</button>
+        </div>
+        <div class="ppane" id="pane-emoji">
+          <div class="ecats" id="ecats"></div>
+          <div class="pscroll" id="egrid"></div>
+        </div>
+        <div class="ppane" id="pane-gif" hidden>
+          <input id="gifSearch" class="psearch" placeholder="Search GIFs" autocomplete="off">
+          <div class="pscroll"><div class="ggrid" id="ggrid"></div><div id="gifMore"></div></div>
+          <div class="pfoot">Powered by GIPHY</div>
+        </div>
+        <div class="ppane" id="pane-sticker" hidden>
+          <div class="pscroll"><div class="sgrid" id="sgrid"></div></div>
+          <div class="pfoot">Animated stickers by Google Noto Emoji</div>
+        </div>
+      </div>
       <div id="form">
+        <button type="button" class="iconbtn" id="emojiBtn" title="Emoji, GIFs and stickers" aria-label="Emoji, GIFs and stickers">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><path d="M9 9h.01M15 9h.01"/></svg>
+        </button>
         <input id="input" placeholder="Write a message…" autocomplete="off">
         <button id="send" onclick="send()" aria-label="Send">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
@@ -620,8 +690,8 @@ setInterval(() => { if (me) { updateChatHeader(); renderList(); } }, 30000);
 function userRow(u, right, clickable) {
   const last = (convos[u.name] || []).at(-1);
   let sub;
-  if (last && last.from === me) sub = tick(last.status || "sent") + esc(last.text);
-  else if (last) sub = esc(last.text);
+  if (last && last.from === me) sub = tick(last.status || "sent") + esc(previewText(last));
+  else if (last) sub = esc(previewText(last));
   else { const s = lastSeenText(u); sub = esc(s[0].toUpperCase() + s.slice(1)); }
   const n = unread[u.name] || 0;
   return `<div class="row ${u.name === current ? "active" : ""} ${n ? "unread" : ""}" ${clickable ? `data-open="${esc(u.name)}"` : ""}>
@@ -683,6 +753,7 @@ $("search").addEventListener("input", renderList);
 
 function openChat(name) {
   current = name; unread[name] = 0;
+  closePicker();
   $("placeholder").style.display = "none";
   $("chat").style.display = "flex";
   $("app").classList.add("chatting");
@@ -696,6 +767,7 @@ function openChat(name) {
 
 function closeChat() {
   current = null;
+  closePicker();
   $("chat").style.display = "none";
   $("placeholder").style.display = "flex";
   $("app").classList.remove("chatting");
@@ -723,10 +795,30 @@ function appendMsg(m) {
   el.className = "msg " + (m.from === me ? "mine" : "theirs") + (lastFrom === m.from ? " cont" : "");
   lastFrom = m.from;
   if (m.id != null) el.dataset.id = m.id;
-  el.innerHTML = `${esc(m.text)}<span class="t">${time(m.ts)}${m.from === me ? tick(m.status || "sent") : ""}</span>`;
+  const meta = `<span class="t">${time(m.ts)}${m.from === me ? tick(m.status || "sent") : ""}</span>`;
+  if (m.kind === "gif" && m.gif) {
+    el.classList.add("media");
+    el.innerHTML = `<img src="${esc(m.gif.url)}" alt="GIF" style="aspect-ratio:${+m.gif.w || 1}/${+m.gif.h || 1}">${meta}`;
+  } else if (m.kind === "sticker" && m.sticker) {
+    el.classList.add("sticker");
+    el.innerHTML = `<img src="${stickerURL(m.sticker)}" alt="${esc(stickerChar(m.sticker))}" width="128" height="128">${meta}`;
+  } else {
+    if (isJumbo(m.text)) el.classList.add("jumbo");
+    el.innerHTML = esc(m.text) + meta;
+  }
   box.appendChild(el);
   box.scrollTop = box.scrollHeight;
+  // images get their real height after loading; keep the newest message in view
+  const img = el.querySelector("img");
+  if (img) img.addEventListener("load", () => {
+    if (box.scrollHeight - box.scrollTop - box.clientHeight < 400) box.scrollTop = box.scrollHeight;
+  }, {once: true});
 }
+
+// 1–3 emoji and nothing else are shown large, like WhatsApp
+const JUMBO_RE = /^(?:\p{Extended_Pictographic}(?:\uFE0F|\p{Emoji_Modifier}|\u200D\p{Extended_Pictographic}\uFE0F?)*\s*){1,3}$/u;
+const isJumbo = t => !!t && t.length <= 40 && JUMBO_RE.test(t.trim());
+const previewText = m => m.kind === "gif" ? "🎞️ GIF" : m.kind === "sticker" ? `${stickerChar(m.sticker)} Sticker` : m.text;
 
 function send() {
   const v = $("input").value.trim();
@@ -735,6 +827,119 @@ function send() {
     $("input").value = "";
   }
 }
+
+function sendMedia(extra) {
+  if (!current || rel(current) !== "friend" || !ws || ws.readyState !== 1) return;
+  ws.send(JSON.stringify({action: "message", to: current, ...extra}));
+  closePicker();
+}
+
+/* ---------- emoji / GIF / sticker picker ---------- */
+const EMOJI = [
+  ["😀", "Smileys", "😀 😃 😄 😁 😆 😅 😂 🤣 😊 😇 🙂 🙃 😉 😌 😍 🥰 😘 😗 😚 😋 😛 😜 🤪 😝 🤑 🤗 🤭 🤫 🤔 🤐 🤨 😐 😑 😶 😏 😒 🙄 😬 😮‍💨 🤥 😔 😪 🤤 😴 😷 🤒 🤕 🤢 🤮 🤧 🥵 🥶 🥴 😵 🤯 🤠 🥳 😎 🤓 🧐 😕 😟 🙁 😮 😯 😲 😳 🥺 😦 😧 😨 😰 😥 😢 😭 😱 😖 😣 😞 😓 😩 😫 🥱 😤 😡 😠 🤬 😈 👿 💀 💩 🤡 👻 👽 🤖 😺 😸 😹 😻 😼 😽 🙀 😿 😾"],
+  ["👋", "Gestures", "👋 🤚 🖐️ ✋ 🖖 👌 🤌 🤏 ✌️ 🤞 🤟 🤘 🤙 👈 👉 👆 👇 ☝️ 👍 👎 ✊ 👊 🤛 🤜 👏 🙌 👐 🤲 🤝 🙏 ✍️ 💪 👀 👁️ 👅 👄 💋 🧠 🫶"],
+  ["❤️", "Hearts", "❤️ 🧡 💛 💚 💙 💜 🖤 🤍 🤎 💔 ❣️ 💕 💞 💓 💗 💖 💘 💝 💟 💯 💢 💥 💫 💦 💨 🔥 ✨ ⭐ 🌟 💤"],
+  ["🐶", "Nature", "🐶 🐱 🐭 🐹 🐰 🦊 🐻 🐼 🐨 🐯 🦁 🐮 🐷 🐸 🐵 🐔 🐧 🐦 🦄 🐝 🦋 🐢 🐍 🐙 🐬 🐳 🌸 🌹 🌻 🌺 🌷 🌳 🌴 🌵 🍀 🌈 ☀️ 🌙 ⚡ ❄️ 🌊"],
+  ["🍕", "Food", "🍎 🍊 🍋 🍌 🍉 🍇 🍓 🍒 🍑 🥭 🍍 🥥 🥝 🍅 🥑 🍆 🥕 🌽 🌶️ 🍞 🧀 🍳 🍔 🍟 🍕 🌭 🌮 🍜 🍝 🍣 🍩 🍪 🎂 🍰 🧁 🍫 🍬 🍭 🍿 ☕ 🍵 🥤 🍺 🍻 🥂"],
+  ["⚽", "Activity", "⚽ 🏀 🏈 ⚾ 🎾 🏐 🏏 🏆 🥇 🎮 🎲 🎯 🎸 🎧 🎤 🎬 🎨 🎁 🎉 🎊 🎈 🚗 ✈️ 🚀 🏠 ⏰ 📷 📱 💻 💡 📚 ✏️ 📌 🔒 🔑 💰"],
+].map(([icon, name, list]) => ({icon, name, list: list.split(" ")}));
+const STICKERS = ("1f600 1f603 1f604 1f601 1f606 1f605 1f602 1f923 1f60a 1f607 1f609 1f60d 1f970 1f618 1f60b 1f61c " +
+  "1f92a 1f60e 1f913 1f973 1f62d 1f622 1f621 1f631 1f633 1f97a 1f914 1f92b 1f971 1f634 1f644 1f92f " +
+  "1f44d 1f44f 1f64f 1f4aa 1f44b 1f91d 2764_fe0f 1f494 1f525 1f389 1f381 1f382 2728 1f4af 1f680 1f308").split(" ");
+const stickerURL = code => `https://fonts.gstatic.com/s/e/notoemoji/latest/${encodeURIComponent(code)}/512.webp`;
+const stickerChar = code => { try { return String.fromCodePoint(...String(code).split("_").map(h => parseInt(h, 16))); } catch { return "✨"; } };
+
+let ptab = "emoji", stickersBuilt = false;
+let gifQuery = null, gifOffset = 0, gifTimer = null, gifReq = 0;
+
+function recentEmoji() { try { return JSON.parse(localStorage.getItem("recentEmoji") || "[]"); } catch { return []; } }
+function rememberEmoji(e) {
+  const list = [e, ...recentEmoji().filter(x => x !== e)].slice(0, 24);
+  try { localStorage.setItem("recentEmoji", JSON.stringify(list)); } catch {}
+}
+
+function openPicker() {
+  $("picker").hidden = false;
+  $("emojiBtn").classList.add("on");
+  showPickerTab(ptab);
+}
+function closePicker() {
+  $("picker").hidden = true;
+  $("emojiBtn").classList.remove("on");
+}
+function showPickerTab(tab) {
+  ptab = tab;
+  document.querySelectorAll(".ptab").forEach(b => b.classList.toggle("on", b.dataset.ptab === tab));
+  ["emoji", "gif", "sticker"].forEach(t => $("pane-" + t).hidden = t !== tab);
+  if (tab === "emoji") buildEmoji();
+  if (tab === "sticker" && !stickersBuilt) {
+    stickersBuilt = true;
+    $("sgrid").innerHTML = STICKERS.map(c => `<button type="button" data-sticker="${c}" title="Send sticker">${stickerChar(c)}</button>`).join("");
+  }
+  if (tab === "gif") {
+    if (gifQuery === null) loadGifs("", false);
+    setTimeout(() => $("gifSearch").focus(), 0);
+  }
+}
+
+function buildEmoji() {
+  const recent = recentEmoji();
+  const sections = (recent.length ? [{icon: "🕘", name: "Recent", list: recent}] : []).concat(EMOJI);
+  $("ecats").innerHTML = sections.map((s, i) => `<button type="button" class="ecat" data-sec="${i}" title="${s.name}">${s.icon}</button>`).join("");
+  $("egrid").innerHTML = sections.map((s, i) => `<div class="esec" id="esec-${i}">${s.name}</div>
+    <div class="egrid">${s.list.map(e => `<button type="button" data-emoji="${esc(e)}">${esc(e)}</button>`).join("")}</div>`).join("");
+}
+
+function insertEmoji(e) {
+  const inp = $("input");
+  const start = inp.selectionStart ?? inp.value.length, end = inp.selectionEnd ?? inp.value.length;
+  inp.setRangeText(e, start, end, "end");
+  inp.focus();
+  rememberEmoji(e);
+}
+
+async function loadGifs(q, more) {
+  const req = ++gifReq;
+  if (!more) { gifQuery = q; gifOffset = 0; $("ggrid").innerHTML = `<div class="pmsg">Loading…</div>`; }
+  $("gifMore").innerHTML = "";
+  try {
+    const r = await fetch(`/api/gifs?q=${encodeURIComponent(q)}&offset=${gifOffset}`);
+    const d = await r.json().catch(() => ({}));
+    if (req !== gifReq) return;  // a newer search started meanwhile
+    if (!r.ok) throw new Error(typeof d.detail === "string" ? d.detail : "GIF search failed");
+    const items = d.results || [];
+    const html = items.map(g => `<button type="button" data-gif="${esc(g.url)}" data-w="${+g.w}" data-h="${+g.h}" title="${esc(g.title)}">
+      <img src="${esc(g.preview)}" alt="${esc(g.title)}" loading="lazy" style="aspect-ratio:${+g.w || 1}/${+g.h || 1}"></button>`).join("");
+    if (!more) $("ggrid").innerHTML = html || `<div class="pmsg">No GIFs found for “${esc(q)}”.</div>`;
+    else $("ggrid").insertAdjacentHTML("beforeend", html);
+    gifOffset += items.length;
+    if (items.length >= 24) $("gifMore").innerHTML = `<button type="button" class="btn" id="gifMoreBtn">Load more</button>`;
+  } catch (err) {
+    if (req !== gifReq) return;
+    const msg = `<div class="pmsg">${esc(err.message === "Failed to fetch" ? "Can't reach the server." : err.message)}</div>`;
+    if (!more) $("ggrid").innerHTML = msg; else $("gifMore").innerHTML = msg;
+  }
+}
+
+$("emojiBtn").addEventListener("click", e => { e.stopPropagation(); $("picker").hidden ? openPicker() : closePicker(); });
+$("picker").addEventListener("click", e => {
+  e.stopPropagation();
+  const t = e.target.closest("button");
+  if (!t) return;
+  if (t.dataset.ptab) return showPickerTab(t.dataset.ptab);
+  if (t.dataset.sec) { const s = $("esec-" + t.dataset.sec); if (s) s.scrollIntoView({block: "start", behavior: "smooth"}); return; }
+  if (t.dataset.emoji) return insertEmoji(t.dataset.emoji);
+  if (t.dataset.sticker) return sendMedia({kind: "sticker", sticker: t.dataset.sticker});
+  if (t.dataset.gif) return sendMedia({kind: "gif", gif: {url: t.dataset.gif, w: +t.dataset.w, h: +t.dataset.h}});
+  if (t.id === "gifMoreBtn") return loadGifs(gifQuery || "", true);
+});
+$("gifSearch").addEventListener("input", e => {
+  clearTimeout(gifTimer);
+  const q = e.target.value.trim();
+  gifTimer = setTimeout(() => { if (q !== gifQuery) loadGifs(q, false); }, 450);
+});
+document.addEventListener("click", e => { if (!$("picker").hidden && !e.target.closest("#picker")) closePicker(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("picker").hidden) closePicker(); });
 
 /* ---------- avatars (photo if the user set one, otherwise coloured initial) ---------- */
 const photos = {};
