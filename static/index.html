@@ -51,6 +51,18 @@
   .primary:hover { background: var(--accent-2); }
   .primary:active { transform: scale(.99); }
   .card .foot { margin-top: 18px; font-size: 12.5px; color: var(--faint); }
+  .authtabs { display: flex; gap: 4px; padding: 4px; margin-bottom: 18px; background: var(--soft); border: 1px solid var(--line); border-radius: 12px; }
+  .atab { flex: 1; padding: 9px; border-radius: 9px; font-size: 14px; font-weight: 600; color: var(--muted); transition: background .15s, color .15s; }
+  .atab.on { background: var(--panel); color: var(--text); box-shadow: 0 1px 3px rgba(16,24,40,.1); }
+  .pwfield { position: relative; }
+  .pwfield input { padding-right: 64px; }
+  .pwtoggle { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); padding: 6px 10px; border-radius: 8px; font-size: 12.5px; font-weight: 600; color: var(--muted); }
+  .pwtoggle:hover { background: var(--hover); color: var(--text); }
+  .autherr { display: none; margin: -4px 0 12px; padding: 9px 12px; border-radius: 10px; font-size: 13px; text-align: left; color: #b91c1c; background: #fef2f2; border: 1px solid #fecaca; }
+  .autherr.show { display: block; }
+  body[data-theme="dark"] .autherr { color: #fca5a5; background: rgba(239,68,68,.1); border-color: rgba(239,68,68,.3); }
+  .primary:disabled { opacity: .6; cursor: wait; }
+  #login.checking .card { visibility: hidden; }
 
   /* ---------- app shell: rail | list | chat ---------- */
   #app { display: none; position: relative; height: calc(100vh - 40px); margin: 20px auto; max-width: 1440px; width: calc(100% - 40px);
@@ -275,13 +287,25 @@
 </head>
 <body data-theme="light">
 
-<div id="login">
+<div id="login" class="checking">
   <div class="card">
     <div class="logo"><svg class="mark" viewBox="0 0 64 64" aria-hidden="true"><path d="M32 12c-11 0-20 7.6-20 17 0 5.2 2.7 9.8 6.9 12.9L17.5 51l8.8-4.2c1.8.5 3.7.7 5.7.7 11 0 20-7.6 20-17.5S43 12 32 12z" fill="#fff"/><path d="M19 30h7l3.5-7 5.5 13 3.5-6H45" fill="none" stroke="#111111" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
     <h1><span class="grad-text">Pulse</span></h1>
     <p>Talk, call and stay close to your people</p>
-    <div class="field"><input id="user" placeholder="What should friends call you?" maxlength="30" autofocus></div>
-    <button class="primary" onclick="join()">Get started <span>→</span></button>
+    <div class="authtabs" role="tablist">
+      <button type="button" class="atab on" data-mode="login">Sign in</button>
+      <button type="button" class="atab" data-mode="signup">Create account</button>
+    </div>
+    <form id="authForm" novalidate>
+      <div class="field"><input id="user" name="username" placeholder="Username" maxlength="20" autocomplete="username" autocapitalize="off" spellcheck="false" autofocus></div>
+      <div class="field pwfield">
+        <input id="pass" name="password" type="password" placeholder="Password" maxlength="128" autocomplete="current-password">
+        <button type="button" class="pwtoggle" id="pwToggle" aria-label="Show password">Show</button>
+      </div>
+      <div class="autherr" id="authErr" role="alert"></div>
+      <button class="primary" id="authBtn" type="submit"><span id="authBtnText">Sign in</span> <span>→</span></button>
+      <div class="foot" id="authHint">New here? Choose “Create account”.</div>
+    </form>
   </div>
 </div>
 
@@ -303,6 +327,9 @@
     <button class="railbtn" onclick="nextTheme()" title="Change theme" aria-label="Change theme">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><circle cx="6.5" cy="12.5" r="1.5"/><path d="M12 2a10 10 0 1 0 0 20c1.1 0 2-.9 2-2 0-.5-.2-1-.5-1.3-.3-.4-.5-.8-.5-1.3 0-1.1.9-2 2-2h2.4A5.6 5.6 0 0 0 22 9.8C22 5.5 17.5 2 12 2z"/></svg>
       <span class="swatch"></span>
+    </button>
+    <button class="railbtn" onclick="logout()" title="Sign out" aria-label="Sign out">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
     </button>
     <div class="avatar clickable" id="meAvatar" title="My profile" onclick="openProfile(me)"></div>
   </nav>
@@ -424,13 +451,74 @@ const peerOf = m => m.from === me ? m.to : m.from;
 const act = (action, to) => ws.readyState === 1 && ws.send(JSON.stringify({action, to}));
 const rel = n => (users.find(u => u.name === n) || {}).relation;
 
-function join() {
-  me = $("user").value.trim();
-  if (!me) return $("user").focus();
+/* ---------- sign in / create account ---------- */
+let authMode = "login";
+const AUTH_TEXT = {
+  login: {btn: "Sign in", hint: "New here? Choose “Create account”.", ac: "current-password"},
+  signup: {btn: "Create account", hint: "Username: 3–20 letters, numbers, . _ or -. Password: at least 8 characters.", ac: "new-password"},
+};
+function setAuthMode(mode) {
+  authMode = mode;
+  document.querySelectorAll(".atab").forEach(b => b.classList.toggle("on", b.dataset.mode === mode));
+  $("authBtnText").textContent = AUTH_TEXT[mode].btn;
+  $("authHint").textContent = AUTH_TEXT[mode].hint;
+  $("pass").autocomplete = AUTH_TEXT[mode].ac;
+  authError("");
+}
+function authError(text) { const e = $("authErr"); e.textContent = text; e.classList.toggle("show", !!text); }
+document.querySelector(".authtabs").addEventListener("click", e => { const t = e.target.closest(".atab"); if (t) setAuthMode(t.dataset.mode); });
+$("pwToggle").addEventListener("click", () => {
+  const p = $("pass"), show = p.type === "password";
+  p.type = show ? "text" : "password";
+  $("pwToggle").textContent = show ? "Hide" : "Show";
+});
+
+$("authForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const username = $("user").value.trim(), password = $("pass").value;
+  if (!username) { authError("Enter your username"); return $("user").focus(); }
+  if (!password) { authError("Enter your password"); return $("pass").focus(); }
+  if (authMode === "signup") {
+    if (!/^[A-Za-z0-9_.-]{3,20}$/.test(username)) return authError("Username must be 3–20 characters: letters, numbers, . _ or -");
+    if (password.length < 8) return authError("Password must be at least 8 characters");
+  }
   unlockAudio();  // must happen on a click so ringtones can play later
   if ("Notification" in window && Notification.permission === "default") Notification.requestPermission();
+  const btn = $("authBtn");
+  btn.disabled = true; authError("");
+  try {
+    const r = await fetch(`/api/${authMode}`, {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({username, password}),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(typeof d.detail === "string" ? d.detail : "Something went wrong. Please try again.");
+    $("pass").value = "";
+    startApp(d.username);
+  } catch (err) {
+    authError(err.message === "Failed to fetch" ? "Can't reach the server. Check your connection." : err.message);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+function showLogin(message) {
+  $("app").style.display = "none";
+  $("login").style.display = "flex";
+  $("login").classList.remove("checking");
+  authError(message || "");
+}
+
+async function logout() {
+  if (ws) { ws.onclose = null; ws.close(); }
+  try { await fetch("/api/logout", {method: "POST"}); } catch {}
+  location.reload();  // clears everything kept in this page
+}
+
+function startApp(username) {
+  me = username;
   const proto = location.protocol === "https:" ? "wss" : "ws";
-  ws = new WebSocket(`${proto}://${location.host}/ws/${encodeURIComponent(me)}`);
+  ws = new WebSocket(`${proto}://${location.host}/ws`);  // the session cookie identifies us
   ws.onopen = () => {
     $("login").style.display = "none";
     $("app").style.display = "flex";
@@ -439,8 +527,16 @@ function join() {
     $("status").style.display = "none";
   };
   ws.onmessage = e => handle(JSON.parse(e.data));
-  ws.onclose = () => { $("status").style.display = "block"; };
+  ws.onclose = e => {
+    if (e.code === 4401) return showLogin("Please sign in again.");
+    $("status").style.display = "block";
+  };
 }
+
+// already signed in on this browser? skip the sign-in screen
+fetch("/api/me").then(r => r.ok ? r.json() : null).then(d => {
+  if (d && d.username) startApp(d.username); else showLogin();
+}).catch(() => showLogin());
 
 function handle(d) {
   if (d.type === "state") {
@@ -1035,7 +1131,6 @@ function toggleTrack(kind, btn) {
 }
 
 $("input").addEventListener("keydown", e => e.key === "Enter" && send());
-$("user").addEventListener("keydown", e => e.key === "Enter" && join());
 </script>
 </body>
 </html>
