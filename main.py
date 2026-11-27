@@ -3,14 +3,17 @@ import hashlib
 import hmac
 import json
 import logging
+import os
 import re
 import secrets
 import time
+import urllib.error
+import urllib.request
 from collections import deque
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import urlencode, urlparse
 
 from fastapi import FastAPI, HTTPException, Request, Response, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
@@ -28,6 +31,30 @@ BASE_DIR = Path(__file__).parent
 # only accept small base64 image data URLs as profile photos
 PHOTO_RE = re.compile(r"data:image/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}")
 USERNAME_RE = re.compile(r"[A-Za-z0-9_.-]{3,20}")
+# GIFs may only point at GIPHY's image servers (no query string, no quotes, no "..")
+GIPHY_URL_RE = re.compile(r"https://(media[0-9]?|i)\.giphy\.com/media/[A-Za-z0-9._/-]{1,300}\.(gif|webp)")
+# stickers are animated Noto emoji, identified by their code points, e.g. "1f602" or "2764_fe0f"
+STICKER_RE = re.compile(r"[0-9a-f]{4,5}(_[0-9a-f]{4,5}){0,3}")
+GIPHY_API_KEY = os.environ.get("GIPHY_API_KEY", "").strip()
+
+
+def _int_between(value, default: int, low: int = 1, high: int = 1000) -> int:
+    try:
+        return max(low, min(high, int(value)))
+    except (TypeError, ValueError):
+        return default
+
+
+def media_fields(kind: str, media: str | None) -> dict:
+    """Extra message fields for GIF/sticker messages, rebuilt from the stored `media` column."""
+    if kind == "gif" and media:
+        try:
+            return {"gif": json.loads(media)}
+        except ValueError:
+            return {}
+    if kind == "sticker" and media:
+        return {"sticker": media}
+    return {}
 
 
 def now() -> str:
@@ -141,7 +168,9 @@ class ChatManager:
         self.requests = {(r["sender"], r["receiver"]) for r in data["requests"]}
         self.follows = {(r["follower"], r["followee"]) for r in data["follows"]}
         self.messages = [{"type": "message", "id": m["id"], "from": m["sender"], "to": m["receiver"],
-                          "text": m["text"], "ts": m["ts"], "status": m["status"]} for m in data["messages"]]
+                          "text": m["text"], "ts": m["ts"], "status": m["status"],
+                          "kind": m.get("kind") or "text", **media_fields(m.get("kind") or "text", m.get("media"))}
+                         for m in data["messages"]]
         self.next_id = max((m["id"] for m in self.messages), default=0) + 1
 
     async def add_user(self, name: str, joined: str):
@@ -330,14 +359,32 @@ class ChatManager:
                 await self.send(me, {"type": "signal", "from": to, "data": {"kind": "unavailable"}})
             return
         elif action == "message" and rel == "friend":
-            text = str(data.get("text", "")).strip()[:2000]
-            if not text:
+            kind = data.get("kind") or "text"
+            media, extra = None, {}
+            if kind == "text":
+                text = str(data.get("text", "")).strip()[:2000]
+                if not text:
+                    return
+            elif kind == "gif":
+                g = data.get("gif") if isinstance(data.get("gif"), dict) else {}
+                url = str(g.get("url", ""))
+                if not GIPHY_URL_RE.fullmatch(url) or ".." in url:
+                    return
+                gif = {"url": url, "w": _int_between(g.get("w"), 200), "h": _int_between(g.get("h"), 200)}
+                text, media, extra = "GIF", json.dumps(gif), {"gif": gif}
+            elif kind == "sticker":
+                code = str(data.get("sticker", ""))
+                if not STICKER_RE.fullmatch(code):
+                    return
+                text, media, extra = "Sticker", code, {"sticker": code}
+            else:
                 return
             msg = {"type": "message", "id": self.next_id, "from": me, "to": to, "text": text,
-                   "ts": now(), "status": "delivered" if to in self.connections else "sent"}
+                   "ts": now(), "status": "delivered" if to in self.connections else "sent",
+                   "kind": kind, **extra}
             self.next_id += 1
             self.messages.append(msg)
-            self.db.add_message(msg)
+            self.db.add_message(msg, media)
             await self.send(me, msg)
             await self.send(to, msg)
             return
@@ -426,6 +473,78 @@ async def logout(request: Request, response: Response):
         await store.run(store.delete_session, _token_hash(token))
     response.delete_cookie(COOKIE, path="/")
     return {"ok": True}
+
+
+# ---------------------------------------------------------------- GIF search (GIPHY)
+# The free GIPHY beta key allows 100 calls per hour, so results are cached and each
+# user is limited. The key stays on the server; browsers only get image URLs.
+GIF_CACHE_SECONDS = 15 * 60
+GIF_USER_LIMIT, GIF_USER_WINDOW = 20, 60
+_gif_cache: dict[tuple[str, int], tuple[float, list]] = {}
+_gif_calls: dict[str, deque] = {}
+
+
+def _no_query(url: str | None) -> str:
+    return (url or "").split("?", 1)[0]
+
+
+def _giphy_fetch(q: str, offset: int) -> list[dict]:
+    params = {"api_key": GIPHY_API_KEY, "limit": 24, "offset": offset, "rating": "pg"}
+    if q:
+        params.update(q=q, lang="en")
+    url = f"https://api.giphy.com/v1/gifs/{'search' if q else 'trending'}?{urlencode(params)}"
+    with urllib.request.urlopen(url, timeout=10) as r:
+        data = json.load(r)
+    results = []
+    for g in data.get("data", []):
+        images = g.get("images") or {}
+        full = images.get("fixed_height") or {}
+        small = images.get("fixed_height_small") or full
+        src = _no_query(full.get("webp") or full.get("url"))
+        preview = _no_query(small.get("webp") or small.get("url"))
+        if not (GIPHY_URL_RE.fullmatch(src) and GIPHY_URL_RE.fullmatch(preview)):
+            continue
+        results.append({"url": src, "preview": preview,
+                        "w": _int_between(full.get("width"), 200), "h": _int_between(full.get("height"), 200),
+                        "title": str(g.get("title") or "GIF")[:80]})
+    return results
+
+
+@app.get("/api/gifs")
+async def gifs(request: Request, q: str = "", offset: int = 0):
+    user = await session_user(request.cookies.get(COOKIE))
+    if not user:
+        raise HTTPException(401, "Not signed in")
+    if not GIPHY_API_KEY:
+        raise HTTPException(503, "GIF search isn't set up on this server yet")
+    q, offset = q.strip()[:50], max(0, min(offset, 4999))
+    key = (q.lower(), offset)
+    hit = _gif_cache.get(key)
+    if hit and time.monotonic() - hit[0] < GIF_CACHE_SECONDS:
+        return {"results": hit[1]}
+
+    calls = _gif_calls.setdefault(user, deque())
+    cutoff = time.monotonic() - GIF_USER_WINDOW
+    while calls and calls[0] < cutoff:
+        calls.popleft()
+    if len(calls) >= GIF_USER_LIMIT:
+        raise HTTPException(429, "Too many GIF searches. Wait a minute and try again.")
+    calls.append(time.monotonic())
+
+    try:
+        results = await run_in_threadpool(_giphy_fetch, q, offset)
+    except urllib.error.HTTPError as e:
+        if e.code == 429:
+            raise HTTPException(429, "GIF search limit reached for this hour. Try again later.")
+        log.warning("GIPHY returned HTTP %s", e.code)
+        raise HTTPException(502, "GIF search is unavailable right now")
+    except Exception as e:  # network errors, bad JSON
+        log.warning("GIPHY request failed: %s", type(e).__name__)
+        raise HTTPException(502, "GIF search is unavailable right now")
+    if len(_gif_cache) > 300:
+        _gif_cache.clear()
+    _gif_cache[key] = (time.monotonic(), results)
+    return {"results": results}
 
 
 # ---------------------------------------------------------------- live connection
