@@ -48,7 +48,9 @@ SCHEMA = [
         receiver TEXT NOT NULL,
         text TEXT NOT NULL,
         ts TEXT NOT NULL,
-        status TEXT NOT NULL)""",
+        status TEXT NOT NULL,
+        kind TEXT NOT NULL DEFAULT 'text',
+        media TEXT)""",
     "CREATE INDEX IF NOT EXISTS chat_sessions_user ON {sessions} (username)",
 ]
 
@@ -142,9 +144,22 @@ class Store:
             self._exec("CREATE SCHEMA IF NOT EXISTS chat")
         for stmt in SCHEMA:
             self._exec(stmt)
+        self._migrate()
         if self.kind == "postgres":
             for name in TABLES:
                 self._exec(f"ALTER TABLE {{{name}}} ENABLE ROW LEVEL SECURITY")
+
+    def _migrate(self):
+        """Add columns introduced after the first release to databases created earlier."""
+        new_cols = {"kind": "TEXT NOT NULL DEFAULT 'text'", "media": "TEXT"}
+        if self.kind == "postgres":
+            for col, decl in new_cols.items():
+                self._exec(f"ALTER TABLE {{messages}} ADD COLUMN IF NOT EXISTS {col} {decl}")
+        else:
+            have = {r["name"] for r in self._rows("PRAGMA table_info({messages})")}
+            for col, decl in new_cols.items():
+                if col not in have:
+                    self._exec(f"ALTER TABLE {{messages}} ADD COLUMN {col} {decl}")
 
     def load_all(self) -> dict:
         return {
@@ -152,7 +167,7 @@ class Store:
             "friends": self._rows("SELECT a, b FROM {friends}"),
             "requests": self._rows("SELECT sender, receiver FROM {requests}"),
             "follows": self._rows("SELECT follower, followee FROM {follows}"),
-            "messages": self._rows("SELECT id, sender, receiver, text, ts, status FROM {messages} ORDER BY id"),
+            "messages": self._rows("SELECT id, sender, receiver, text, ts, status, kind, media FROM {messages} ORDER BY id"),
         }
 
     # ---------- accounts & sessions (called via run(), so they return results) ----------
@@ -196,9 +211,11 @@ class Store:
         c1, c2 = PAIR_COLS[table]
         self.write(f"DELETE FROM {{{table}}} WHERE {c1} = :a AND {c2} = :b", {"a": a, "b": b})
 
-    def add_message(self, m):
-        self.write("INSERT INTO {messages} (id, sender, receiver, text, ts, status) VALUES (:id, :f, :t, :x, :ts, :s)",
-                   {"id": m["id"], "f": m["from"], "t": m["to"], "x": m["text"], "ts": m["ts"], "s": m["status"]})
+    def add_message(self, m, media: str | None = None):
+        self.write("INSERT INTO {messages} (id, sender, receiver, text, ts, status, kind, media) "
+                   "VALUES (:id, :f, :t, :x, :ts, :s, :k, :m)",
+                   {"id": m["id"], "f": m["from"], "t": m["to"], "x": m["text"], "ts": m["ts"],
+                    "s": m["status"], "k": m.get("kind", "text"), "m": media})
 
     def set_status(self, ids, status):
         for i in ids:
